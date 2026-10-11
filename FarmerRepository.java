@@ -1,0 +1,1 @@
+package in.agricred.farmerservice; import org.springframework.data.jpa.repository.JpaRepository; import java.util.Optional; public interface FarmerRepository extends JpaRepository<FarmerProfile,Long>{Optional<FarmerProfile> findByEmailIgnoreCase(String email); }

@@ -1,0 +1,65 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-agricred}
+      POSTGRES_USER: ${POSTGRES_USER:-agricred}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-this-local-password}
+    ports: ["5432:5432"]
+    volumes: ["agricred-db:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-agricred} -d ${POSTGRES_DB:-agricred}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  auth-service:
+    build: ./backend/auth-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/agricred
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-agricred}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-change-this-local-password}
+      JWT_SECRET: ${JWT_SECRET:-replace-this-with-a-random-secret-at-least-32-characters}
+    depends_on: {postgres: {condition: service_healthy}}
+    ports: ["8081:8081"]
+  farmer-service:
+    build: ./backend/farmer-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/agricred
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-agricred}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-change-this-local-password}
+      AZURE_STORAGE_CONNECTION_STRING: ${AZURE_STORAGE_CONNECTION_STRING:-}
+      AZURE_STORAGE_CONTAINER: ${AZURE_STORAGE_CONTAINER:-farmer-documents}
+    depends_on: {postgres: {condition: service_healthy}}
+    ports: ["8082:8082"]
+    volumes: ["farmer-uploads:/app/uploads"]
+  risk-service:
+    build: ./backend/risk-service
+    environment:
+      AZURE_AI_ENDPOINT: ${AZURE_AI_ENDPOINT:-}
+      AZURE_AI_KEY: ${AZURE_AI_KEY:-}
+    ports: ["8083:8083"]
+  loan-service:
+    build: ./backend/loan-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/agricred
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-agricred}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-change-this-local-password}
+      FARMER_SERVICE_URL: http://farmer-service:8082
+      RISK_SERVICE_URL: http://risk-service:8083
+      JWT_SECRET: ${JWT_SECRET:-replace-this-with-a-random-secret-at-least-32-characters}
+    depends_on:
+      postgres: {condition: service_healthy}
+      farmer-service: {condition: service_started}
+      risk-service: {condition: service_started}
+    ports: ["8084:8084"]
+  frontend:
+    build: ./frontend
+    environment:
+      VITE_API_BASE: http://localhost:8081
+      VITE_FARMER_API: http://localhost:8082
+      VITE_LOAN_API: http://localhost:8084
+    ports: ["5173:5173"]
+    depends_on: [auth-service, farmer-service, loan-service]
+volumes:
+  agricred-db:
+  farmer-uploads:

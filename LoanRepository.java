@@ -1,0 +1,1 @@
+package in.agricred.loanservice;import org.springframework.data.jpa.repository.JpaRepository;import java.util.List;public interface LoanRepository extends JpaRepository<LoanApplication,Long>{List<LoanApplication> findByFarmerEmailIgnoreCaseOrderByCreatedAtDesc(String email);List<LoanApplication> findAllByOrderByCreatedAtDesc();}
